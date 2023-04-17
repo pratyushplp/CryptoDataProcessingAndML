@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 import pandas_ta as ta
+from sklearn.preprocessing import MinMaxScaler
 import logging
+
 
 # NOTES: We are currenlty assuming that all values are present in the excel file:
 # the data is continous. TO ADD: check for discontnous data and find a replacement strategy.
@@ -24,7 +26,7 @@ class ETL:
         except Exception as e:
             logging.error('Failed to load and clean data: \n' + str(e))
 
-    def Add_Label_TI_Data(self, df, window_size=5, alpha=0.005, k=14, d=3):
+    def Add_TI_Data(self, df, k=14, d=3, cols= ['ti_stoch_kd','ti_MACD']):
         try:
             # add technical indicators
             # adds 2 columns "STOCHk_14_3_3","STOCHd_14_3_3"
@@ -65,12 +67,19 @@ class ETL:
             # print(df.shape[0])
             # print(len(norm_kd))
             # print(len(norm_macd))
-            df['ti_kd']= norm_kd
-            df['ti_MACD']= norm_macd
+            df[cols[0]]= norm_kd
+            df[cols[1]]= norm_macd#test
+            return df
         except Exception as e:
             logging.ERROR('Failed to add TI data: \n' + str(e))
 
+    def Add_Label(self, df, window_size=5, alpha=0.005,cols_to_normalize= ['open','high', 'low', 'close', 'base_volume', 'quote_volume', 'num_trades']):
         try:
+            #first normalize the ohlcv data
+            # cols_to_normalize = ['open','high', 'low', 'close', 'base_volume', 'quote_volume', 'num_trades']
+            df_norm = self.normalize_ohlcv_data(df,cols_to_normalize)
+            for col in cols_to_normalize:
+                df[col]= df_norm[col]
             #Create Labels: 2 types of label, a) short term b) daily
             ma_minus = df['close'].rolling(window=window_size).mean()
             ma_plus = ma_minus.shift(-(window_size-1))
@@ -95,3 +104,24 @@ class ETL:
         except Exception as e:
             logging.error('Failed to add labels to data: \n' + str(e))
             return
+    def create_tensor_with_sequence(self,df,output_list,sequence_length=14):
+        #code to convert to 3d vector
+        # Create a copy of the original data
+        data_seq = df.copy()
+        # Create new columns for each day of historical data
+        for i in range(1, sequence_length + 1):
+            for col in df.columns:
+                if(col in output_list):
+                    continue
+                data_seq[f'{col}_lag{i}'] = df[col].shift(i)
+        # Drop rows with missing values
+        data_seq.dropna(inplace=True)
+        return data_seq
+
+    #Note we have created TI columns
+    def normalize_ohlcv_data(self, df,cols_to_normalize):
+        scaler = MinMaxScaler()
+        scaler.fit(df[cols_to_normalize])
+        df_norm = scaler.transform(df[cols_to_normalize])
+        df_norm = pd.DataFrame(df_norm, columns=cols_to_normalize)
+        return df_norm
