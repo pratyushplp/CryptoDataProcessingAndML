@@ -3,6 +3,7 @@ import numpy as np
 import pandas_ta as ta
 from sklearn.preprocessing import MinMaxScaler
 import logging
+import matplotlib.pyplot as plt
 
 
 # NOTES: We are currenlty assuming that all values are present in the excel file:
@@ -125,3 +126,47 @@ class ETL:
         df_norm = scaler.transform(df[cols_to_normalize])
         df_norm = pd.DataFrame(df_norm, columns=cols_to_normalize)
         return df_norm
+
+    def visualizeValidation(self, history):
+        # Plot training and validation accuracy
+        plt.plot(history.history['accuracy'])
+        plt.plot(history.history['val_accuracy'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper left')
+        plt.show()
+
+        # Plot training and validation loss
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper left')
+        plt.show()
+
+        # Evaluate model on test data
+    def getPredictionData(self,y_pred):
+        binary_2d = np.zeros_like(y_pred)
+        # loop through each row of probs_2d
+        # loop through each row of probs_2d
+        for i in range(y_pred.shape[0]):
+            # set values above 0.35 to 1, and below to 0
+            temp = []
+            isAdded = False
+            for val in y_pred[i]:
+                if val > 0.35:
+                    if not isAdded:
+                        temp.append(1)
+                        isAdded = True
+                    elif val >= max(temp):
+                        temp = [0 for _ in range(len(temp))]
+                        temp.append(1)
+                    else:
+                        temp.append(0)
+                else:
+                    temp.append(0)
+                    isAdded = False
+            binary_2d[i] = np.array(temp)
+        return binary_2d
